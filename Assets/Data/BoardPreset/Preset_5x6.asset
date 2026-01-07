@@ -12,5 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e0a6f2542b6519d4aa51e0e9f98d28f5, type: 3}
   m_Name: Preset_5x6
   m_EditorClassIdentifier: 
-  <Rows>k__BackingField: 4
-  <Columns>k__BackingField: 4
+  <Rows>k__BackingField: 5
+  <Columns>k__BackingField: 6
