@@ -1,10 +1,17 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class GameController : MonoBehaviour
 {
+    [field: SerializeField] public MenuView MenuView { get; private set; }
     [field: SerializeField] public BoardView BoardView { get; private set; }
+
+    [field: SerializeField] public GameObject PanelMenu { get; private set; }
+    [field: SerializeField] public GameObject PanelGame { get; private set; }
+    [field: SerializeField] public Button HomeButton { get; private set; }
+
     [field: SerializeField] public float MatchRevealSeconds { get; private set; } = 1.2f;
     [field: SerializeField] public float MismatchRevealSeconds { get; private set; } = 1.2f;
 
@@ -15,14 +22,31 @@ public class GameController : MonoBehaviour
 
     void OnEnable()
     {
+        if (MenuView != null)
+            MenuView.PresetSelected += StartGame;
+
         if (BoardView != null)
             BoardView.CardClicked += OnCardClicked;
+
+        if (HomeButton != null)
+            HomeButton.onClick.AddListener(ShowMenu);
     }
 
     void OnDisable()
     {
+        if (MenuView != null)
+            MenuView.PresetSelected -= StartGame;
+
         if (BoardView != null)
             BoardView.CardClicked -= OnCardClicked;
+
+        if (HomeButton != null)
+            HomeButton.onClick.RemoveListener(ShowMenu);
+    }
+
+    void Start()
+    {
+        ShowMenu();
     }
 
     void Update()
@@ -36,6 +60,34 @@ public class GameController : MonoBehaviour
             if (TrySelect(slot))
                 break;
         }
+    }
+
+    void StartGame(BoardPreset preset)
+    {
+        if (preset == null || BoardView == null)
+            return;
+
+        pendingSelections.Clear();
+        faceUpUnresolved.Clear();
+        isResolving = false;
+
+        BoardView.Build(new GameSessionConfig(preset));
+
+        if (PanelMenu != null) PanelMenu.SetActive(false);
+        if (PanelGame != null) PanelGame.SetActive(true);
+    }
+
+    void ShowMenu()
+    {
+        pendingSelections.Clear();
+        faceUpUnresolved.Clear();
+        isResolving = false;
+
+        if (BoardView != null)
+            BoardView.Clear();
+
+        if (PanelMenu != null) PanelMenu.SetActive(true);
+        if (PanelGame != null) PanelGame.SetActive(false);
     }
 
     void OnCardClicked(int slotIndex)
