@@ -5,6 +5,20 @@ using UnityEngine.UI;
 
 public class GameController : MonoBehaviour
 {
+    struct PendingPair
+    {
+        public int A;
+        public int B;
+        public float PairedAt;
+
+        public PendingPair(int a, int b, float pairedAt)
+        {
+            A = a;
+            B = b;
+            PairedAt = pairedAt;
+        }
+    }
+
     [field: SerializeField] public MenuView MenuView { get; private set; }
     [field: SerializeField] public BoardView BoardView { get; private set; }
 
@@ -15,10 +29,10 @@ public class GameController : MonoBehaviour
     [field: SerializeField] public float MatchRevealSeconds { get; private set; } = 1.2f;
     [field: SerializeField] public float MismatchRevealSeconds { get; private set; } = 1.2f;
 
-    readonly Queue<int> pendingSelections = new();
-    readonly List<int> faceUpUnresolved = new(2);
+    readonly Queue<int> pendingSingles = new();
+    readonly Queue<PendingPair> pairQueue = new();
 
-    bool isResolving;
+    Coroutine resolveRoutine;
 
     void OnEnable()
     {
@@ -44,22 +58,10 @@ public class GameController : MonoBehaviour
             HomeButton.onClick.RemoveListener(ShowMenu);
     }
 
+
     void Start()
     {
         ShowMenu();
-    }
-
-    void Update()
-    {
-        if (isResolving)
-            return;
-
-        while (pendingSelections.Count > 0)
-        {
-            var slot = pendingSelections.Dequeue();
-            if (TrySelect(slot))
-                break;
-        }
     }
 
     void StartGame(BoardPreset preset)
@@ -67,9 +69,8 @@ public class GameController : MonoBehaviour
         if (preset == null || BoardView == null)
             return;
 
-        pendingSelections.Clear();
-        faceUpUnresolved.Clear();
-        isResolving = false;
+        ResetRuntimeState();
+        BoardView.Build(new GameSessionConfig(preset));
 
         BoardView.Build(new GameSessionConfig(preset));
 
@@ -79,9 +80,7 @@ public class GameController : MonoBehaviour
 
     void ShowMenu()
     {
-        pendingSelections.Clear();
-        faceUpUnresolved.Clear();
-        isResolving = false;
+        ResetRuntimeState();
 
         if (BoardView != null)
             BoardView.Clear();
@@ -90,91 +89,108 @@ public class GameController : MonoBehaviour
         if (PanelGame != null) PanelGame.SetActive(false);
     }
 
-    void OnCardClicked(int slotIndex)
+    void ResetRuntimeState()
     {
-        pendingSelections.Enqueue(slotIndex);
+        pendingSingles.Clear();
+        pairQueue.Clear();
+
+        if (resolveRoutine != null)
+        {
+            StopCoroutine(resolveRoutine);
+            resolveRoutine = null;
+        }
     }
 
-    bool TrySelect(int slotIndex)
+    void OnCardClicked(int slotIndex)
     {
         if (BoardView == null)
-            return false;
+            return;
 
         var cards = BoardView.SpawnedCards;
         if (slotIndex < 0 || slotIndex >= cards.Count)
-            return false;
+            return;
 
         var card = cards[slotIndex];
         if (card == null || !card.gameObject.activeSelf)
-            return false;
+            return;
 
-        if (faceUpUnresolved.Contains(slotIndex))
-            return false;
+        if (card.IsMatched || card.IsFaceUp)
+            return;
 
         card.FlipToFaceUp();
-        faceUpUnresolved.Add(slotIndex);
 
-        if (faceUpUnresolved.Count < 2)
-            return false;
+        pendingSingles.Enqueue(slotIndex);
 
-        var a = faceUpUnresolved[0];
-        var b = faceUpUnresolved[1];
+        if (pendingSingles.Count >= 2)
+        {
+            var a = pendingSingles.Dequeue();
+            var b = pendingSingles.Dequeue();
+            pairQueue.Enqueue(new PendingPair(a, b, Time.unscaledTime));
 
-        faceUpUnresolved.Clear();
-        StartCoroutine(ResolvePairRoutine(a, b));
-        return true;
+            if (resolveRoutine == null)
+                resolveRoutine = StartCoroutine(ResolvePairsRoutine());
+        }
     }
 
-    IEnumerator ResolvePairRoutine(int a, int b)
+  
+
+    IEnumerator ResolvePairsRoutine()
     {
-        isResolving = true;
-
-        var cards = BoardView.SpawnedCards;
-        if (a < 0 || b < 0 || a >= cards.Count || b >= cards.Count)
+        while (pairQueue.Count > 0)
         {
-            isResolving = false;
-            yield break;
-        }
+            var pair = pairQueue.Dequeue();
 
-        var cardA = cards[a];
-        var cardB = cards[b];
+            if (BoardView == null)
+                continue;
 
-        if (cardA == null || cardB == null || !cardA.gameObject.activeSelf || !cardB.gameObject.activeSelf)
-        {
-            isResolving = false;
-            yield break;
-        }
+            var cards = BoardView.SpawnedCards;
+            if (pair.A < 0 || pair.B < 0 || pair.A >= cards.Count || pair.B >= cards.Count)
+                continue;
 
-        var isMatch = cardA.CardId == cardB.CardId;
+            var cardA = cards[pair.A];
+            var cardB = cards[pair.B];
 
-        if (isMatch)
-        {
-            if (MatchRevealSeconds > 0f)
-                yield return new WaitForSeconds(MatchRevealSeconds);
+            if (cardA == null || cardB == null)
+                continue;
+
+            if (!cardA.gameObject.activeSelf || !cardB.gameObject.activeSelf)
+                continue;
+
+            if (cardA.IsMatched || cardB.IsMatched)
+                continue;
+
+            var isMatch = cardA.CardId == cardB.CardId;
+            var desiredDelay = isMatch ? MatchRevealSeconds : MismatchRevealSeconds;
+
+            var elapsed = Time.unscaledTime - pair.PairedAt;
+            var remaining = desiredDelay - elapsed;
+
+            if (remaining > 0f)
+                yield return new WaitForSecondsRealtime(remaining);
             else
                 yield return null;
 
-            if (cardA != null && cardA.gameObject.activeSelf)
+            if (cardA == null || cardB == null)
+                continue;
+
+            if (!cardA.gameObject.activeSelf || !cardB.gameObject.activeSelf)
+                continue;
+
+            if (cardA.IsMatched || cardB.IsMatched)
+                continue;
+
+            if (isMatch)
+            {
                 cardA.SetMatchedCanvasGroup();
-
-            if (cardB != null && cardB.gameObject.activeSelf)
                 cardB.SetMatchedCanvasGroup();
-
-            isResolving = false;
-            yield break;
+            }
+            else
+            {
+                cardA.FlipToFaceDown();
+                cardB.FlipToFaceDown();
+            }
         }
 
-        if (MismatchRevealSeconds > 0f)
-            yield return new WaitForSeconds(MismatchRevealSeconds);
-        else
-            yield return null;
-
-        if (cardA != null && cardA.gameObject.activeSelf)
-            cardA.FlipToFaceDown();
-
-        if (cardB != null && cardB.gameObject.activeSelf)
-            cardB.FlipToFaceDown();
-
-        isResolving = false;
+        resolveRoutine = null;
     }
 }

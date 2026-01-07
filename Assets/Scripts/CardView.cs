@@ -17,11 +17,14 @@ public class CardView : MonoBehaviour
     public int SlotIndex { get; private set; }
     public string CardId { get; private set; }
     public bool IsFaceUp { get; private set; }
+    public bool IsMatched { get; private set; }
 
     Coroutine flipRoutine;
 
     public void Initialize(int slotIndex, string cardId, Sprite iconSprite)
     {
+        IsMatched = false;
+
         SlotIndex = slotIndex;
         CardId = cardId;
 
@@ -133,6 +136,7 @@ public class CardView : MonoBehaviour
     public void SetMatchedCanvasGroup()
     {
         SetInteractable(false);
+        IsMatched = true;
 
         if (BackImage != null)
             BackImage.gameObject.SetActive(false);
