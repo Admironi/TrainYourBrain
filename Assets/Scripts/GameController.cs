@@ -45,6 +45,9 @@ public class GameController : MonoBehaviour
 
     bool TrySelect(int slotIndex)
     {
+        if (BoardView == null)
+            return false;
+
         var cards = BoardView.SpawnedCards;
         if (slotIndex < 0 || slotIndex >= cards.Count)
             return false;
@@ -56,7 +59,7 @@ public class GameController : MonoBehaviour
         if (faceUpUnresolved.Contains(slotIndex))
             return false;
 
-        card.SetFaceUp();
+        card.FlipToFaceUp();
         faceUpUnresolved.Add(slotIndex);
 
         if (faceUpUnresolved.Count < 2)
@@ -100,10 +103,10 @@ public class GameController : MonoBehaviour
                 yield return null;
 
             if (cardA != null && cardA.gameObject.activeSelf)
-                cardA.SetMatched();
+                cardA.SetMatchedCanvasGroup();
 
             if (cardB != null && cardB.gameObject.activeSelf)
-                cardB.SetMatched();
+                cardB.SetMatchedCanvasGroup();
 
             isResolving = false;
             yield break;
@@ -115,10 +118,10 @@ public class GameController : MonoBehaviour
             yield return null;
 
         if (cardA != null && cardA.gameObject.activeSelf)
-            cardA.SetFaceDown();
+            cardA.FlipToFaceDown();
 
         if (cardB != null && cardB.gameObject.activeSelf)
-            cardB.SetFaceDown();
+            cardB.FlipToFaceDown();
 
         isResolving = false;
     }
