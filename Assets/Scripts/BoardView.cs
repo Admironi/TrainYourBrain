@@ -5,24 +5,36 @@ using UnityEngine.UI;
 
 public class BoardView : MonoBehaviour
 {
-    [field: SerializeField] public RectTransform BoardArea { get; private set; }
+    [field: SerializeField] public RectTransform GridRoot { get; private set; }
     [field: SerializeField] public GridLayoutGroup Grid { get; private set; }
     [field: SerializeField] public CardView CardPrefab { get; private set; }
     [field: SerializeField] public CardLibrary CardLibrary { get; private set; }
+
     [field: SerializeField] public BoardPreset TestPreset { get; private set; }
     [field: SerializeField] public bool AutoBuildInPlayMode { get; private set; } = true;
+
     [field: SerializeField] public float CardWidthToHeight { get; private set; } = 0.75f;
+    [field: SerializeField] public float MinCellSize { get; private set; } = 32f;
 
     public event Action<int> CardClicked;
-
 
     public IReadOnlyList<CardView> SpawnedCards => spawnedCards;
     public IReadOnlyList<string> DeckCardIds => deckCardIds;
 
-    List<CardView> spawnedCards = new();
-
+    readonly List<CardView> spawnedCards = new();
     readonly List<string> deckCardIds = new();
 
+    int pendingRows;
+    int pendingCols;
+
+    void Awake()
+    {
+        if (GridRoot == null)
+            GridRoot = transform as RectTransform;
+
+        if (Grid == null && GridRoot != null)
+            Grid = GridRoot.GetComponent<GridLayoutGroup>();
+    }
 
     void Start()
     {
@@ -33,6 +45,16 @@ public class BoardView : MonoBehaviour
             Build(new GameSessionConfig(TestPreset));
     }
 
+    void OnEnable()
+    {
+        ApplyDynamicCellSizeIfPending();
+    }
+
+    void OnRectTransformDimensionsChange()
+    {
+        ApplyDynamicCellSizeIfPending();
+    }
+
     public void Build(GameSessionConfig session)
     {
         if (session == null || session.Preset == null)
@@ -41,7 +63,7 @@ public class BoardView : MonoBehaviour
             return;
         }
 
-        if (BoardArea == null || Grid == null || CardPrefab == null)
+        if (GridRoot == null || Grid == null || CardPrefab == null || CardLibrary == null)
         {
             Debug.LogError("BoardView is missing references.");
             return;
@@ -56,7 +78,7 @@ public class BoardView : MonoBehaviour
             return;
         }
 
-        var validCards = CardLibrary != null ? CardLibrary.ValidCards : null;
+        var validCards = CardLibrary.ValidCards;
         if (validCards == null || validCards.Count == 0)
         {
             Debug.LogError("CardLibrary has no valid cards.");
@@ -75,7 +97,10 @@ public class BoardView : MonoBehaviour
         Grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
         Grid.constraintCount = preset.Columns;
 
-        ApplyDynamicCellSize(preset.Rows, preset.Columns);
+        pendingRows = preset.Rows;
+        pendingCols = preset.Columns;
+
+        ApplyDynamicCellSizeIfPending();
 
         var rng = new System.Random(session.Seed);
         var deck = CreateDeck(validCards, requiredPairs, rng);
@@ -100,76 +125,12 @@ public class BoardView : MonoBehaviour
         }
     }
 
-    public void Clear()
-    {
-        spawnedCards.Clear();
-        deckCardIds.Clear();
-
-        if (Grid == null)
-            return;
-
-        for (var i = Grid.transform.childCount - 1; i >= 0; i--)
-            Destroy(Grid.transform.GetChild(i).gameObject);
-    }
-
-    void ApplyDynamicCellSize(int rows, int columns)
-    {
-        Canvas.ForceUpdateCanvases();
-
-        if (BoardArea != null)
-            LayoutRebuilder.ForceRebuildLayoutImmediate(BoardArea);
-
-        var area = BoardArea.rect.size;
-
-        var padding = Grid.padding;
-        var spacing = Grid.spacing;
-
-        var usableWidth = area.x - padding.left - padding.right - (spacing.x * (columns - 1));
-        var usableHeight = area.y - padding.top - padding.bottom - (spacing.y * (rows - 1));
-
-        var maxCellWidth = usableWidth / columns;
-        var maxCellHeight = usableHeight / rows;
-
-        var aspect = Mathf.Clamp(CardWidthToHeight, 0.1f, 10f);
-
-        var widthFromHeight = maxCellHeight * aspect;
-        var heightFromWidth = maxCellWidth / aspect;
-
-        var cellWidth = Mathf.Min(maxCellWidth, widthFromHeight);
-        var cellHeight = Mathf.Min(maxCellHeight, heightFromWidth);
-
-        cellWidth = Mathf.Max(1f, Mathf.Floor(cellWidth));
-        cellHeight = Mathf.Max(1f, Mathf.Floor(cellHeight));
-
-        Grid.cellSize = new Vector2(cellWidth, cellHeight);
-    }
-
-    static List<CardDefinition> CreateDeck(IReadOnlyList<CardDefinition> validCards, int requiredPairs, System.Random rng)
-    {
-        var selected = new List<CardDefinition>(requiredPairs);
-        var pool = new List<CardDefinition>(validCards);
-        Shuffle(pool, rng);
-
-        for (var i = 0; i < requiredPairs; i++)
-            selected.Add(pool[i]);
-
-        var deck = new List<CardDefinition>(requiredPairs * 2);
-        for (var i = 0; i < selected.Count; i++)
-        {
-            deck.Add(selected[i]);
-            deck.Add(selected[i]);
-        }
-
-        Shuffle(deck, rng);
-        return deck;
-    }
-
     public void BuildFromSavedDeck(GameSessionConfig session, IReadOnlyList<string> savedDeckIds, bool[] matchedSlots)
     {
         if (session == null || session.Preset == null)
             return;
 
-        if (BoardArea == null || Grid == null || CardPrefab == null || CardLibrary == null)
+        if (GridRoot == null || Grid == null || CardPrefab == null || CardLibrary == null)
             return;
 
         var preset = session.Preset;
@@ -186,7 +147,10 @@ public class BoardView : MonoBehaviour
         Grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
         Grid.constraintCount = preset.Columns;
 
-        ApplyDynamicCellSize(preset.Rows, preset.Columns);
+        pendingRows = preset.Rows;
+        pendingCols = preset.Columns;
+
+        ApplyDynamicCellSizeIfPending();
 
         deckCardIds.Clear();
         deckCardIds.AddRange(savedDeckIds);
@@ -215,6 +179,86 @@ public class BoardView : MonoBehaviour
 
             spawnedCards.Add(card);
         }
+    }
+
+    public void Clear()
+    {
+        spawnedCards.Clear();
+        deckCardIds.Clear();
+
+        pendingRows = 0;
+        pendingCols = 0;
+
+        if (Grid == null)
+            return;
+
+        for (var i = Grid.transform.childCount - 1; i >= 0; i--)
+            Destroy(Grid.transform.GetChild(i).gameObject);
+    }
+
+    void ApplyDynamicCellSizeIfPending()
+    {
+        if (pendingRows <= 0 || pendingCols <= 0)
+            return;
+
+        if (GridRoot == null || Grid == null)
+            return;
+
+        var area = GridRoot.rect.size;
+        if (area.x <= 0f || area.y <= 0f)
+            return;
+
+        ApplyDynamicCellSize(pendingRows, pendingCols);
+    }
+
+    void ApplyDynamicCellSize(int rows, int columns)
+    {
+        var area = GridRoot.rect.size;
+
+        var padding = Grid.padding;
+        var spacing = Grid.spacing;
+
+        var usableWidth = area.x - padding.left - padding.right - (spacing.x * (columns - 1));
+        var usableHeight = area.y - padding.top - padding.bottom - (spacing.y * (rows - 1));
+
+        if (usableWidth <= 0f || usableHeight <= 0f)
+            return;
+
+        var maxCellWidth = usableWidth / columns;
+        var maxCellHeight = usableHeight / rows;
+
+        var aspect = Mathf.Clamp(CardWidthToHeight, 0.1f, 10f);
+
+        var widthFromHeight = maxCellHeight * aspect;
+        var heightFromWidth = maxCellWidth / aspect;
+
+        var cellWidth = Mathf.Min(maxCellWidth, widthFromHeight);
+        var cellHeight = Mathf.Min(maxCellHeight, heightFromWidth);
+
+        cellWidth = Mathf.Max(MinCellSize, Mathf.Floor(cellWidth));
+        cellHeight = Mathf.Max(MinCellSize, Mathf.Floor(cellHeight));
+
+        Grid.cellSize = new Vector2(cellWidth, cellHeight);
+    }
+
+    static List<CardDefinition> CreateDeck(IReadOnlyList<CardDefinition> validCards, int requiredPairs, System.Random rng)
+    {
+        var selected = new List<CardDefinition>(requiredPairs);
+        var pool = new List<CardDefinition>(validCards);
+        Shuffle(pool, rng);
+
+        for (var i = 0; i < requiredPairs; i++)
+            selected.Add(pool[i]);
+
+        var deck = new List<CardDefinition>(requiredPairs * 2);
+        for (var i = 0; i < selected.Count; i++)
+        {
+            deck.Add(selected[i]);
+            deck.Add(selected[i]);
+        }
+
+        Shuffle(deck, rng);
+        return deck;
     }
 
     static void Shuffle<T>(IList<T> list, System.Random rng)
