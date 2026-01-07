@@ -37,6 +37,8 @@ public class GameController : MonoBehaviour
 
     [field: SerializeField] public BoardPreset[] Presets { get; private set; }
 
+    [field: SerializeField] public AudioService Audio { get; private set; }
+
     readonly Queue<int> pendingSingles = new();
     readonly Queue<PendingPair> pairQueue = new();
 
@@ -59,6 +61,7 @@ public class GameController : MonoBehaviour
         if (PanelMenu == null) Debug.LogError("PanelMenu is not assigned.", this);
         if (PanelGame == null) Debug.LogError("PanelGame is not assigned.", this);
         if (HomeButton == null) Debug.LogError("HomeButton is not assigned.", this);
+        if (Audio == null) Debug.LogError("Audio is not assigned.", this);
     }
 
     void OnEnable()
@@ -320,6 +323,8 @@ public class GameController : MonoBehaviour
 
         card.FlipToFaceUp();
 
+        Audio.PlayCardFlip();
+
         pendingSingles.Enqueue(slotIndex);
 
         if (pendingSingles.Count >= 2)
@@ -387,6 +392,8 @@ public class GameController : MonoBehaviour
                 cardA.SetMatchedCanvasGroup();
                 cardB.SetMatchedCanvasGroup();
 
+                Audio.PlayMatch();
+
                 HudView.SetMatches(session.MatchedPairs, session.TotalPairs);
                 HudView.SetScore(session.Score);
 
@@ -398,6 +405,9 @@ public class GameController : MonoBehaviour
 
                     pairQueue.Clear();
                     pendingSingles.Clear();
+
+                    Audio.PlayGameWon();
+
                     WinView.Show(session.Score, session.Turns);
                 }
             }
@@ -405,8 +415,10 @@ public class GameController : MonoBehaviour
             {
                 session.RegisterMismatch();
 
+                Audio.PlayMismatch();
+
                 cardA.FlipToFaceDown();
-                cardB.FlipToFaceDown();
+                cardB.FlipToFaceDown();               
 
                 SaveNow();
             }
