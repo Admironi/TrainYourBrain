@@ -23,23 +23,43 @@ public class GameController : MonoBehaviour
     [field: SerializeField] public BoardView BoardView { get; private set; }
     [field: SerializeField] public HudView HudView { get; private set; }
     [field: SerializeField] public WinView WinView { get; private set; }
+    [field: SerializeField] public ContinuePopupView ContinuePopupView { get; private set; }
 
     [field: SerializeField] public GameObject PanelMenu { get; private set; }
     [field: SerializeField] public GameObject PanelGame { get; private set; }
     [field: SerializeField] public Button HomeButton { get; private set; }
 
-    [field: SerializeField] public float MatchRevealSeconds { get; private set; } = 1.2f;
-    [field: SerializeField] public float MismatchRevealSeconds { get; private set; } = 1.2f;
+    [field: SerializeField] public float MatchRevealSeconds { get; private set; } = 0.7f;
+    [field: SerializeField] public float MismatchRevealSeconds { get; private set; } = 0.7f;
 
     [field: SerializeField] public int BaseMatchScore { get; private set; } = 10;
     [field: SerializeField] public int ComboBonusStep { get; private set; } = 5;
+
+    [field: SerializeField] public BoardPreset[] Presets { get; private set; }
 
     readonly Queue<int> pendingSingles = new();
     readonly Queue<PendingPair> pairQueue = new();
 
     Coroutine resolveRoutine;
-    BoardPreset lastPreset;
+
     GameSessionState session;
+    GameSessionConfig currentConfig;
+    BoardPreset currentPreset;
+
+    SessionSaveData pendingSaved;
+    int pendingRows;
+    int pendingCols;
+
+    void Awake()
+    {
+        if (BoardView == null) Debug.LogError("BoardView is not assigned.", this);
+        if (HudView == null) Debug.LogError("HudView is not assigned.", this);
+        if (WinView == null) Debug.LogError("WinView is not assigned.", this);
+        if (ContinuePopupView == null) Debug.LogError("ContinuePopupView is not assigned.", this);
+        if (PanelMenu == null) Debug.LogError("PanelMenu is not assigned.", this);
+        if (PanelGame == null) Debug.LogError("PanelGame is not assigned.", this);
+        if (HomeButton == null) Debug.LogError("HomeButton is not assigned.", this);
+    }
 
     void OnEnable()
     {
@@ -49,14 +69,13 @@ public class GameController : MonoBehaviour
         if (BoardView != null)
             BoardView.CardClicked += OnCardClicked;
 
-        if (HomeButton != null)
-            HomeButton.onClick.AddListener(ShowMenu);
+        HomeButton.onClick.AddListener(ShowMenu);
 
-        if (WinView != null)
-        {
-            WinView.PlayAgainClicked += OnPlayAgain;
-            WinView.MainMenuClicked += OnMainMenu;
-        }
+        WinView.PlayAgainClicked += OnPlayAgain;
+        WinView.MainMenuClicked += OnMainMenu;
+
+        ContinuePopupView.ContinueClicked += OnContinueFromPopup;
+        ContinuePopupView.CloseClicked += OnClosePopup;
     }
 
     void OnDisable()
@@ -67,16 +86,14 @@ public class GameController : MonoBehaviour
         if (BoardView != null)
             BoardView.CardClicked -= OnCardClicked;
 
-        if (HomeButton != null)
-            HomeButton.onClick.RemoveListener(ShowMenu);
+        HomeButton.onClick.RemoveListener(ShowMenu);
 
-        if (WinView != null)
-        {
-            WinView.PlayAgainClicked -= OnPlayAgain;
-            WinView.MainMenuClicked -= OnMainMenu;
-        }
+        WinView.PlayAgainClicked -= OnPlayAgain;
+        WinView.MainMenuClicked -= OnMainMenu;
+
+        ContinuePopupView.ContinueClicked -= OnContinueFromPopup;
+        ContinuePopupView.CloseClicked -= OnClosePopup;
     }
-
 
     void Start()
     {
@@ -85,21 +102,51 @@ public class GameController : MonoBehaviour
 
     void StartGame(BoardPreset preset)
     {
-        if (preset == null || BoardView == null)
+        if (preset == null)
             return;
 
+        StartFreshGame(preset);
+    }
+
+    void StartFreshGame(BoardPreset preset)
+    {
         ResetRuntimeState();
 
         WinView.Hide();
-        lastPreset = preset;
+        ContinuePopupView.Hide();
+
+        currentPreset = preset;
+        currentConfig = new GameSessionConfig(preset);
 
         session = new GameSessionState(preset.TotalPairs, BaseMatchScore, ComboBonusStep);
 
-        BoardView.Build(new GameSessionConfig(preset));
+        BoardView.Build(currentConfig);
         RefreshHud();
 
-        if (PanelMenu != null) PanelMenu.SetActive(false);
-        if (PanelGame != null) PanelGame.SetActive(true);
+        SaveNow();
+
+        PanelMenu.SetActive(false);
+        PanelGame.SetActive(true);
+    }
+
+    void LoadSavedGame(BoardPreset preset, SessionSaveData data)
+    {
+        ResetRuntimeState();
+
+        WinView.Hide();
+        ContinuePopupView.Hide();
+
+        currentPreset = preset;
+        currentConfig = new GameSessionConfig(preset, data.Seed);
+
+        session = new GameSessionState(preset.TotalPairs, BaseMatchScore, ComboBonusStep);
+        session.LoadProgress(data.MatchedPairs, data.Turns, data.Score, data.ComboStreak);
+
+        BoardView.BuildFromSavedDeck(currentConfig, data.DeckCardIds, data.MatchedSlots);
+        RefreshHud();
+
+        PanelMenu.SetActive(false);
+        PanelGame.SetActive(true);
     }
 
     void ShowMenu()
@@ -108,11 +155,107 @@ public class GameController : MonoBehaviour
 
         WinView.Hide();
 
-        if (BoardView != null)
-            BoardView.Clear();
+        BoardView.Clear();
 
-        if (PanelMenu != null) PanelMenu.SetActive(true);
-        if (PanelGame != null) PanelGame.SetActive(false);
+        PanelMenu.SetActive(true);
+        PanelGame.SetActive(false);
+
+        ContinuePopupView.Hide();
+        TryShowContinuePopup();
+    }
+
+    void TryShowContinuePopup()
+    {
+        if (!SaveService.TryLoad(out pendingRows, out pendingCols, out pendingSaved))
+            return;
+
+        if (pendingSaved == null)
+            return;
+
+        ContinuePopupView.Show();
+        PanelMenu.SetActive(false);
+    }
+
+    void OnClosePopup()
+    {
+        ContinuePopupView.Hide();
+        pendingSaved = null;
+        pendingRows = 0;
+        pendingCols = 0;
+        PanelMenu.SetActive(true);
+    }
+
+    void OnContinueFromPopup()
+    {
+        ContinuePopupView.Hide();
+
+        if (pendingSaved == null)
+            return;
+
+        var preset = FindPreset(pendingRows, pendingCols);
+        if (preset == null)
+        {
+            SaveService.Clear();
+            OnClosePopup();
+            return;
+        }
+
+        LoadSavedGame(preset, pendingSaved);
+
+        pendingSaved = null;
+        pendingRows = 0;
+        pendingCols = 0;
+    }
+
+    BoardPreset FindPreset(int rows, int cols)
+    {
+        if (Presets == null)
+            return null;
+
+        for (var i = 0; i < Presets.Length; i++)
+        {
+            var p = Presets[i];
+            if (p == null)
+                continue;
+
+            if (p.Rows == rows && p.Columns == cols)
+                return p;
+        }
+
+        return null;
+    }
+
+    void SaveNow()
+    {
+        if (session == null || currentConfig == null || currentPreset == null)
+            return;
+
+        var cards = BoardView.SpawnedCards;
+        var matchedSlots = new bool[cards.Count];
+
+        for (var i = 0; i < cards.Count; i++)
+            matchedSlots[i] = cards[i] != null && cards[i].IsMatched;
+
+        var deckIds = BoardView.DeckCardIds;
+        var deckArray = new string[deckIds.Count];
+        for (var i = 0; i < deckIds.Count; i++)
+            deckArray[i] = deckIds[i];
+
+        var data = new SessionSaveData
+        {
+            PresetName = currentPreset.name,
+            Rows = currentPreset.Rows,
+            Columns = currentPreset.Columns,
+            Seed = currentConfig.Seed,
+            Turns = session.Turns,
+            Score = session.Score,
+            ComboStreak = session.ComboStreak,
+            MatchedPairs = session.MatchedPairs,
+            DeckCardIds = deckArray,
+            MatchedSlots = matchedSlots
+        };
+
+        SaveService.Save(currentPreset.Rows, currentPreset.Columns, data);
     }
 
     void ResetRuntimeState()
@@ -127,14 +270,14 @@ public class GameController : MonoBehaviour
         }
 
         session = null;
+        currentConfig = null;
+        currentPreset = null;
+
         RefreshHud();
     }
 
     void RefreshHud()
     {
-        if (HudView == null)
-            return;
-
         var totalPairs = session != null ? session.TotalPairs : 0;
         var matchedPairs = session != null ? session.MatchedPairs : 0;
         var turns = session != null ? session.Turns : 0;
@@ -147,10 +290,11 @@ public class GameController : MonoBehaviour
 
     void OnPlayAgain()
     {
-        if (lastPreset == null)
+        if (currentPreset == null)
             return;
 
-        StartGame(lastPreset);
+        SaveService.Clear();
+        StartFreshGame(currentPreset);
     }
 
     void OnMainMenu()
@@ -160,7 +304,7 @@ public class GameController : MonoBehaviour
 
     void OnCardClicked(int slotIndex)
     {
-        if (BoardView == null)
+        if (session == null)
             return;
 
         var cards = BoardView.SpawnedCards;
@@ -184,7 +328,8 @@ public class GameController : MonoBehaviour
             var b = pendingSingles.Dequeue();
 
             session.RegisterTurn();
-            HudView?.SetTurns(session.Turns);
+            HudView.SetTurns(session.Turns);
+            SaveNow();
 
             pairQueue.Enqueue(new PendingPair(a, b, Time.unscaledTime));
 
@@ -193,16 +338,11 @@ public class GameController : MonoBehaviour
         }
     }
 
-  
-
     IEnumerator ResolvePairsRoutine()
     {
         while (pairQueue.Count > 0)
         {
             var pair = pairQueue.Dequeue();
-
-            if (BoardView == null)
-                continue;
 
             var cards = BoardView.SpawnedCards;
             if (pair.A < 0 || pair.B < 0 || pair.A >= cards.Count || pair.B >= cards.Count)
@@ -250,8 +390,12 @@ public class GameController : MonoBehaviour
                 HudView.SetMatches(session.MatchedPairs, session.TotalPairs);
                 HudView.SetScore(session.Score);
 
+                SaveNow();
+
                 if (session.IsComplete())
                 {
+                    SaveService.Clear();
+
                     pairQueue.Clear();
                     pendingSingles.Clear();
                     WinView.Show(session.Score, session.Turns);
@@ -263,6 +407,8 @@ public class GameController : MonoBehaviour
 
                 cardA.FlipToFaceDown();
                 cardB.FlipToFaceDown();
+
+                SaveNow();
             }
         }
 

@@ -15,8 +15,14 @@ public class BoardView : MonoBehaviour
 
     public event Action<int> CardClicked;
 
+
     public IReadOnlyList<CardView> SpawnedCards => spawnedCards;
+    public IReadOnlyList<string> DeckCardIds => deckCardIds;
+
     List<CardView> spawnedCards = new();
+
+    readonly List<string> deckCardIds = new();
+
 
     void Start()
     {
@@ -74,6 +80,10 @@ public class BoardView : MonoBehaviour
         var rng = new System.Random(session.Seed);
         var deck = CreateDeck(validCards, requiredPairs, rng);
 
+        deckCardIds.Clear();
+        for (var i = 0; i < deck.Count; i++)
+            deckCardIds.Add(deck[i].Id);
+
         for (var i = 0; i < deck.Count; i++)
         {
             var def = deck[i];
@@ -93,6 +103,7 @@ public class BoardView : MonoBehaviour
     public void Clear()
     {
         spawnedCards.Clear();
+        deckCardIds.Clear();
 
         if (Grid == null)
             return;
@@ -151,6 +162,59 @@ public class BoardView : MonoBehaviour
 
         Shuffle(deck, rng);
         return deck;
+    }
+
+    public void BuildFromSavedDeck(GameSessionConfig session, IReadOnlyList<string> savedDeckIds, bool[] matchedSlots)
+    {
+        if (session == null || session.Preset == null)
+            return;
+
+        if (BoardArea == null || Grid == null || CardPrefab == null || CardLibrary == null)
+            return;
+
+        var preset = session.Preset;
+        var totalCards = preset.TotalCards;
+
+        if (savedDeckIds == null || savedDeckIds.Count != totalCards)
+        {
+            Debug.LogError("Saved deck is invalid.");
+            return;
+        }
+
+        Clear();
+
+        Grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        Grid.constraintCount = preset.Columns;
+
+        ApplyDynamicCellSize(preset.Rows, preset.Columns);
+
+        deckCardIds.Clear();
+        deckCardIds.AddRange(savedDeckIds);
+
+        for (var i = 0; i < savedDeckIds.Count; i++)
+        {
+            var id = savedDeckIds[i];
+
+            if (!CardLibrary.TryGetById(id, out var def))
+            {
+                Debug.LogError($"Missing CardDefinition for id: {id}");
+                continue;
+            }
+
+            var card = Instantiate(CardPrefab, Grid.transform);
+            card.Initialize(i, def.Id, def.Sprite);
+
+            if (matchedSlots != null && i < matchedSlots.Length && matchedSlots[i])
+                card.SetMatchedCanvasGroup();
+
+            if (card.Button != null)
+            {
+                var slot = i;
+                card.Button.onClick.AddListener(() => CardClicked?.Invoke(slot));
+            }
+
+            spawnedCards.Add(card);
+        }
     }
 
     static void Shuffle<T>(IList<T> list, System.Random rng)

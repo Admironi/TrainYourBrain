@@ -1,3 +1,5 @@
+using UnityEditor.Presets;
+
 public class GameSessionState
 {
     public int TotalPairs { get; }
@@ -19,6 +21,14 @@ public class GameSessionState
         Turns = 0;
         Score = 0;
         ComboStreak = 0;
+    }
+
+    public void LoadProgress(int matchedPairs, int turns, int score, int comboStreak)
+    {
+        MatchedPairs = matchedPairs;
+        Turns = turns;
+        Score = score;
+        ComboStreak = comboStreak;
     }
 
     public void RegisterTurn()

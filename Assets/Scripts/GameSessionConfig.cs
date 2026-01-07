@@ -11,4 +11,10 @@ public class GameSessionConfig
         Preset = preset;
         Seed = new Random().Next();
     }
+
+    public GameSessionConfig(BoardPreset preset, int seed)
+    {
+        Preset = preset;
+        Seed = seed;
+    }
 }
