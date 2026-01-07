@@ -888,6 +888,51 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 657571673}
   m_CullTransparentMesh: 1
+--- !u!1 &667734446
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 667734448}
+  - component: {fileID: 667734447}
+  m_Layer: 0
+  m_Name: GameController
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &667734447
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 667734446}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 135613871b87e6b43b517c887e53695b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  <BoardView>k__BackingField: {fileID: 1619800077}
+--- !u!4 &667734448
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 667734446}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 539.24414, y: 1011.9136, z: -9.932672}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 3
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &682048019
 GameObject:
   m_ObjectHideFlags: 0
@@ -1856,6 +1901,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1619800075}
   - component: {fileID: 1619800076}
+  - component: {fileID: 1619800077}
   m_Layer: 5
   m_Name: BoardRoot
   m_TagString: Untagged
@@ -1907,6 +1953,25 @@ MonoBehaviour:
   m_Spacing: {x: 5, y: 20}
   m_Constraint: 1
   m_ConstraintCount: 5
+--- !u!114 &1619800077
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1619800074}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 942f3bfc367fd0b43a7a41143a069f7b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  <BoardArea>k__BackingField: {fileID: 394587416}
+  <Grid>k__BackingField: {fileID: 1619800076}
+  <CardPrefab>k__BackingField: {fileID: 3513578925609579882, guid: 90ff090ed3fa2a640b48ef4c3918cd56, type: 3}
+  <CardLibrary>k__BackingField: {fileID: 11400000, guid: 42ecf7b9d1287e54fb370156effc983a, type: 2}
+  <TestPreset>k__BackingField: {fileID: 11400000, guid: 06e6233332cc8834bbf2c03d917e94cb, type: 2}
+  <AutoBuildInPlayMode>k__BackingField: 1
+  <CardWidthToHeight>k__BackingField: 0.75
 --- !u!1 &1658187907
 GameObject:
   m_ObjectHideFlags: 0

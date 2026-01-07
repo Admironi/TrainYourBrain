@@ -36,6 +36,20 @@ public class CardView : MonoBehaviour
         if (FrontRoot != null) FrontRoot.SetActive(true);
     }
 
+    public void SetMatched(bool hide)
+    {
+        SetInteractable(false);
+
+        if (hide)
+        {
+            gameObject.SetActive(false);
+            return;
+        }
+
+        if (BackImage != null) BackImage.gameObject.SetActive(false);
+        if (FrontRoot != null) FrontRoot.SetActive(true);
+    }
+
     public void SetInteractable(bool isInteractable)
     {
         if (Button != null) Button.interactable = isInteractable;

@@ -84,6 +84,7 @@ public class BoardView : MonoBehaviour
             {
                 var slot = i;
                 card.Button.onClick.AddListener(() => CardClicked?.Invoke(slot));
+                card.Button.onClick.AddListener(() => Debug.Log($"Clicked slot {slot}"));
             }
 
             spawnedCards.Add(card);
@@ -92,7 +93,6 @@ public class BoardView : MonoBehaviour
 
     public void Clear()
     {
-        CardClicked = null;
         spawnedCards.Clear();
 
         if (Grid == null)
