@@ -269,7 +269,7 @@ GameObject:
   - component: {fileID: 263967691}
   - component: {fileID: 263967690}
   m_Layer: 5
-  m_Name: Txt_Matches (1)
+  m_Name: Txt_Turns
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -919,11 +919,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   <MenuView>k__BackingField: {fileID: 1775561318}
   <BoardView>k__BackingField: {fileID: 1619800077}
+  <HudView>k__BackingField: {fileID: 2121819917}
   <PanelMenu>k__BackingField: {fileID: 1775561316}
   <PanelGame>k__BackingField: {fileID: 1166490251}
   <HomeButton>k__BackingField: {fileID: 797754544}
-  <MatchRevealSeconds>k__BackingField: 1
-  <MismatchRevealSeconds>k__BackingField: 1
+  <MatchRevealSeconds>k__BackingField: 0.6
+  <MismatchRevealSeconds>k__BackingField: 0.6
+  <BaseMatchScore>k__BackingField: 10
+  <ComboBonusStep>k__BackingField: 5
 --- !u!4 &667734448
 Transform:
   m_ObjectHideFlags: 0
@@ -951,7 +954,7 @@ GameObject:
   - component: {fileID: 682048022}
   - component: {fileID: 682048021}
   m_Layer: 5
-  m_Name: Txt_Matches (2)
+  m_Name: Txt_Score
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2661,6 +2664,7 @@ GameObject:
   - component: {fileID: 2121819915}
   - component: {fileID: 2121819914}
   - component: {fileID: 2121819913}
+  - component: {fileID: 2121819917}
   m_Layer: 5
   m_Name: HudBar
   m_TagString: Untagged
@@ -2774,3 +2778,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2121819911}
   m_CullTransparentMesh: 1
+--- !u!114 &2121819917
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2121819911}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 77e1e81b59a96a74381ec4f4e3b556c0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  <MatchesText>k__BackingField: {fileID: 246857303}
+  <TurnsText>k__BackingField: {fileID: 263967690}
+  <ScoreText>k__BackingField: {fileID: 682048021}

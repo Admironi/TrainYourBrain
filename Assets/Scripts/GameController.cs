@@ -21,6 +21,7 @@ public class GameController : MonoBehaviour
 
     [field: SerializeField] public MenuView MenuView { get; private set; }
     [field: SerializeField] public BoardView BoardView { get; private set; }
+    [field: SerializeField] public HudView HudView { get; private set; }
 
     [field: SerializeField] public GameObject PanelMenu { get; private set; }
     [field: SerializeField] public GameObject PanelGame { get; private set; }
@@ -29,10 +30,14 @@ public class GameController : MonoBehaviour
     [field: SerializeField] public float MatchRevealSeconds { get; private set; } = 1.2f;
     [field: SerializeField] public float MismatchRevealSeconds { get; private set; } = 1.2f;
 
+    [field: SerializeField] public int BaseMatchScore { get; private set; } = 10;
+    [field: SerializeField] public int ComboBonusStep { get; private set; } = 5;
+
     readonly Queue<int> pendingSingles = new();
     readonly Queue<PendingPair> pairQueue = new();
 
     Coroutine resolveRoutine;
+    GameSessionState session;
 
     void OnEnable()
     {
@@ -70,9 +75,11 @@ public class GameController : MonoBehaviour
             return;
 
         ResetRuntimeState();
-        BoardView.Build(new GameSessionConfig(preset));
+
+        session = new GameSessionState(preset.TotalPairs, BaseMatchScore, ComboBonusStep);
 
         BoardView.Build(new GameSessionConfig(preset));
+        RefreshHud();
 
         if (PanelMenu != null) PanelMenu.SetActive(false);
         if (PanelGame != null) PanelGame.SetActive(true);
@@ -99,6 +106,24 @@ public class GameController : MonoBehaviour
             StopCoroutine(resolveRoutine);
             resolveRoutine = null;
         }
+
+        session = null;
+        RefreshHud();
+    }
+
+    void RefreshHud()
+    {
+        if (HudView == null)
+            return;
+
+        var totalPairs = session != null ? session.TotalPairs : 0;
+        var matchedPairs = session != null ? session.MatchedPairs : 0;
+        var turns = session != null ? session.Turns : 0;
+        var score = session != null ? session.Score : 0;
+
+        HudView.SetMatches(matchedPairs, totalPairs);
+        HudView.SetTurns(turns);
+        HudView.SetScore(score);
     }
 
     void OnCardClicked(int slotIndex)
@@ -125,6 +150,10 @@ public class GameController : MonoBehaviour
         {
             var a = pendingSingles.Dequeue();
             var b = pendingSingles.Dequeue();
+
+            session.RegisterTurn();
+            HudView?.SetTurns(session.Turns);
+
             pairQueue.Enqueue(new PendingPair(a, b, Time.unscaledTime));
 
             if (resolveRoutine == null)
@@ -181,11 +210,24 @@ public class GameController : MonoBehaviour
 
             if (isMatch)
             {
+                session.RegisterMatch();
+
                 cardA.SetMatchedCanvasGroup();
                 cardB.SetMatchedCanvasGroup();
+
+                HudView.SetMatches(session.MatchedPairs, session.TotalPairs);
+                HudView.SetScore(session.Score);
+
+                if (session.IsComplete())
+                {
+                    pairQueue.Clear();
+                    pendingSingles.Clear();
+                }
             }
             else
             {
+                session.RegisterMismatch();
+
                 cardA.FlipToFaceDown();
                 cardB.FlipToFaceDown();
             }
