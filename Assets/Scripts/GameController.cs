@@ -22,6 +22,7 @@ public class GameController : MonoBehaviour
     [field: SerializeField] public MenuView MenuView { get; private set; }
     [field: SerializeField] public BoardView BoardView { get; private set; }
     [field: SerializeField] public HudView HudView { get; private set; }
+    [field: SerializeField] public WinView WinView { get; private set; }
 
     [field: SerializeField] public GameObject PanelMenu { get; private set; }
     [field: SerializeField] public GameObject PanelGame { get; private set; }
@@ -37,6 +38,7 @@ public class GameController : MonoBehaviour
     readonly Queue<PendingPair> pairQueue = new();
 
     Coroutine resolveRoutine;
+    BoardPreset lastPreset;
     GameSessionState session;
 
     void OnEnable()
@@ -49,6 +51,12 @@ public class GameController : MonoBehaviour
 
         if (HomeButton != null)
             HomeButton.onClick.AddListener(ShowMenu);
+
+        if (WinView != null)
+        {
+            WinView.PlayAgainClicked += OnPlayAgain;
+            WinView.MainMenuClicked += OnMainMenu;
+        }
     }
 
     void OnDisable()
@@ -61,6 +69,12 @@ public class GameController : MonoBehaviour
 
         if (HomeButton != null)
             HomeButton.onClick.RemoveListener(ShowMenu);
+
+        if (WinView != null)
+        {
+            WinView.PlayAgainClicked -= OnPlayAgain;
+            WinView.MainMenuClicked -= OnMainMenu;
+        }
     }
 
 
@@ -76,6 +90,9 @@ public class GameController : MonoBehaviour
 
         ResetRuntimeState();
 
+        WinView.Hide();
+        lastPreset = preset;
+
         session = new GameSessionState(preset.TotalPairs, BaseMatchScore, ComboBonusStep);
 
         BoardView.Build(new GameSessionConfig(preset));
@@ -88,6 +105,8 @@ public class GameController : MonoBehaviour
     void ShowMenu()
     {
         ResetRuntimeState();
+
+        WinView.Hide();
 
         if (BoardView != null)
             BoardView.Clear();
@@ -124,6 +143,19 @@ public class GameController : MonoBehaviour
         HudView.SetMatches(matchedPairs, totalPairs);
         HudView.SetTurns(turns);
         HudView.SetScore(score);
+    }
+
+    void OnPlayAgain()
+    {
+        if (lastPreset == null)
+            return;
+
+        StartGame(lastPreset);
+    }
+
+    void OnMainMenu()
+    {
+        ShowMenu();
     }
 
     void OnCardClicked(int slotIndex)
@@ -222,6 +254,7 @@ public class GameController : MonoBehaviour
                 {
                     pairQueue.Clear();
                     pendingSingles.Clear();
+                    WinView.Show(session.Score, session.Turns);
                 }
             }
             else
