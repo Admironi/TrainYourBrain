@@ -8,6 +8,7 @@ public class CardView : MonoBehaviour
     [field: SerializeField] public GameObject FrontRoot { get; private set; }
     [field: SerializeField] public Image FrontFrameImage { get; private set; }
     [field: SerializeField] public Image FrontIconImage { get; private set; }
+    [field: SerializeField] public CanvasGroup CanvasGroup { get; private set; }
 
     public int SlotIndex { get; private set; }
     public string CardId { get; private set; }
@@ -36,18 +37,19 @@ public class CardView : MonoBehaviour
         if (FrontRoot != null) FrontRoot.SetActive(true);
     }
 
-    public void SetMatched(bool hide)
+    public void SetMatched()
     {
         SetInteractable(false);
 
-        if (hide)
-        {
-            gameObject.SetActive(false);
-            return;
-        }
-
         if (BackImage != null) BackImage.gameObject.SetActive(false);
-        if (FrontRoot != null) FrontRoot.SetActive(true);
+        if (FrontRoot != null) FrontRoot.SetActive(false);
+
+        if (CanvasGroup != null)
+        {
+            CanvasGroup.alpha = 0f;
+            CanvasGroup.blocksRaycasts = false;
+            CanvasGroup.interactable = false;
+        }
     }
 
     public void SetInteractable(bool isInteractable)

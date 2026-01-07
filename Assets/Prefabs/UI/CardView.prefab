@@ -128,6 +128,7 @@ GameObject:
   - component: {fileID: 694727823775344609}
   - component: {fileID: 3513578925609579882}
   - component: {fileID: 2906529564938168557}
+  - component: {fileID: 3301773174433990937}
   m_Layer: 5
   m_Name: CardView
   m_TagString: Untagged
@@ -246,6 +247,7 @@ MonoBehaviour:
   <FrontRoot>k__BackingField: {fileID: 155454559930201698}
   <FrontFrameImage>k__BackingField: {fileID: 1587446719147321329}
   <FrontIconImage>k__BackingField: {fileID: 4916660593506354889}
+  <CanvasGroup>k__BackingField: {fileID: 3301773174433990937}
 --- !u!114 &2906529564938168557
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -276,6 +278,18 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!225 &3301773174433990937
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4102011075087069586}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &7295859861979449077
 GameObject:
   m_ObjectHideFlags: 0

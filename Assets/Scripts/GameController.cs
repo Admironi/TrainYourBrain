@@ -100,10 +100,10 @@ public class GameController : MonoBehaviour
                 yield return null;
 
             if (cardA != null && cardA.gameObject.activeSelf)
-                cardA.SetMatched(true);
+                cardA.SetMatched();
 
             if (cardB != null && cardB.gameObject.activeSelf)
-                cardB.SetMatched(true);
+                cardB.SetMatched();
 
             isResolving = false;
             yield break;
